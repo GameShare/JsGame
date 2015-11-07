@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Link!</title>
+    <script type="text/javascript">
+        function Link(x,y,name,diff){
+            this.x = x;
+            this.y = y;
+            this.name = name;
+            this.diff = diff; //有几种不同的砖块
+            this.clickFlag = 0;
+            this.clickX = -1;
+            this.clickY = -1;
+            this.preState = -1;
+            this.total = (this.x - 2)*(this.y - 2)
+            this.each = new Array(this.diff);
+            //初始化了一个地图
+            this.map = new Array(x);
+            for(var i = 0; i<this.x; i++){
+                this.map[i] = new Array(y);
+                for(var j = 0; j<this.y; j++){
+                    this.map[i][j] = new Array(2);
+                    this.map[i][j][0] = 0;
+                    this.map[i][j][1] = 0;
+                    //首个元素用于判断当前砖块状态，0代表无内容，其他代表有不同的内容
+                    //第二个元素在重整时有起到作用
+                }
+            }
+        }
+        Link.prototype = {
+            constructor : Link,
+            creatTable : function(){
+                var html = '<p>已用时间：<span id="'+this.name+'-time">0</span></p><table id="'+this.name+'"><tbody>'
+                var oDiv = document.getElementById('game-area');
+                for(var i = 0; i < this.x; i++){
+                    html += '<tr>';
+                    for(var j = 0; j < this.y; j++){
+                        html += '<td id="'+this.name+'-'+i+'-'+j+'"></td>';
+                    }
+                    html += '</tr>'
+                }
+                html += '</tbody></table><button id="'+this.name+'-reset">重整</button>'
+                oDiv.innerHTML += html;
+            },
+            //0:无内容，1：被选中，-1：提示路线
+            changeState : function(x,y,state){
+                // console.log(x);
+                try{
+                    var oTable = document.getElementById(this.name)
+                    var oTr = oTable.getElementsByTagName('tr')[x];
+                    var oTd = oTr.getElementsByTagName('td')[y];
+                }
+                catch(e){console.log(e);return 0;}
+                
+                this.map[x][y][0] = state;
+                var bgName;
+                switch(state){
+                    case -1: bgName = 'blue';break;
+                    case 0: bgName = 'white';break;
+                    case 1: bgName = 'green';break;
+                    default: bgName = 'url("img/'+(state - 1)+'.jpg")';break;
+                }
+                if(state >= -1 && state <= 1){oTd.style.backgroundImage = ''; oTd.style.background = bgName; }
+                else{oTd.style.background = ''; oTd.style.backgroundImage = bgName;}
+                // console.log(bgName + ' contain')
+            },
+            creatBlock : function(){
+                var total = (this.x - 2)*(this.y - 2)
+                var left = (total/2) % this.diff;
+                var alsoLeft = left;
+                var each = new Array(this.diff);
+                var rand;
+                for(var i = 0; i < this.diff; i++){
+                    each[i] = (total/2 - alsoLeft)/this.diff*2;
+                    if(left){each[i]+=2;left--;}
+                }
+                for(var i = 0; i < this.diff; i++){
+                    this.each[i] = each[i];
+                }
+                while(true){
+                    var already = 0;
+                    var randX = Math.ceil(Math.random()*(this.x-2));
+                    var randY = Math.ceil(Math.random()*(this.y-2));
+                    if(this.map[randX][randY][0] == 0){
+                        while(true){
+                            rand = Math.floor(Math.random()*this.diff);
+                            if(each[rand]){
+                                this.changeState(randX,randY,2+rand);
+                                each[rand]--;
+                                total--;
+                                break;
+                            }
+                        }
+                    }
+                    if(!total)break;
+                }
+                document.getElementById(this.name+'-time').innerHTML = '0';
+            },
+            clickSame : function(i,j){
+                this.changeState(i,j,this.preState);
+                this.preState = -1;
+                this.clickFlag--;
+            },
+            firstClick : function(i,j){
+                this.preState = this.map[i][j][0];
+                this.changeState(i,j,1);
+                this.clickX = i;
+                this.clickY = j;
+                this.clickFlag++;
+            },
+            checkClear : function(x1,y1,x2,y2){
+                var firAccess = this.blockAccess(x1,y1);
+                var secAccess = this.blockAccess(x2,y2);
+                var tirAccess;
+                //一条线的画法
+                for(var i = 0; i < firAccess.length; i++){
+                    if(firAccess[i][0] == x2 && firAccess[i][1] == y2)
+                        {return 1;}
+                }
+                //两条线的画法
+                for(var i = 0; i < firAccess.length; i++){
+                    for(var j = 0; j < secAccess.length; j++){
+                        if(firAccess[i][0] == secAccess[j][0] && firAccess[i][1] == secAccess[j][1] 
+                            && !firAccess[i][2] && !secAccess[j][2])
+                            {return 1;}
+                    }
+                }
+                //三条线的画法
+                for(var i = 0; i < firAccess.length; i++){
+                    for(var j = 0; j < secAccess.length; j++){
+                        tirAccess = this.blockAccess(firAccess[i][0],firAccess[i][1])
+                        for(var k = 0; k < tirAccess.length; k++){
+                        if(tirAccess[k][0] == secAccess[j][0] && tirAccess[k][1] == secAccess[j][1]
+                            && !firAccess[i][2] && !secAccess[j][2] && !tirAccess[k][2])
+                            {return 1;}
+                        }
+                    }
+                }
+                return 0;
+            },
+            blockAccess : function(x,y){
+                var i;
+                var accessList = [];
+                for(i = x+1; i < this.x; i++){
+                    if(this.map[i][y][0] == 0){accessList.push([i,y,0]);}
+                    else {accessList.push([i,y,1]);break;}
+                }
+                for(i = x-1; i >= 0; i--){
+                    if(this.map[i][y][0] == 0){accessList.push([i,y,0]);}
+                    else {accessList.push([i,y,1]);break;}
+                }
+                for(i = y+1; i < this.y; i++){
+                    if(this.map[x][i][0] == 0){accessList.push([x,i,0]);}
+                    else {accessList.push([x,i,1]);break;}
+                }
+                for(i = y-1; i >= 0; i--){
+                    if(this.map[x][i][0] == 0){accessList.push([x,i,0]);}
+                    else {accessList.push([x,i,1]);break;}
+                }
+                return accessList;
+            },
+            clear : function(x1,y1,x2,y2){
+                this.each[this.preState-2]-=2;
+                this.changeState(x1,y1,0);
+                this.changeState(x2,y2,0);
+                this.clickFlag = 0;
+                this.total-=2;
+                if(this.total == 0){
+                    alert('恭喜，新的一局即将开始');
+                    this.total = (this.x - 2)*(this.y - 2);
+                    this.creatBlock();
+                }
+            },
+            reset : function(){
+                this.clickFlag = 0;
+                var each = new Array(this.diff);
+                var total = 0;
+                for(var i = 0; i < this.diff; i++){
+                    each[i] = this.each[i];
+                    total += this.each[i];
+                }
+                while(true){
+                    var randX = Math.ceil(Math.random()*(this.x-2));
+                    var randY = Math.ceil(Math.random()*(this.y-2));
+                    if(this.map[randX][randY][0] != 0 && this.map[randX][randY][1] != 1){
+                        while(true){
+                            rand = Math.floor(Math.random()*this.diff);
+                            if(each[rand]){
+                                this.map[randX][randY][1] = 1;
+                                this.changeState(randX,randY,2+rand);
+                                each[rand]--;
+                                total--;
+                                break;
+                            }
+                        }
+                    }
+                    if(!total)break;
+                }
+                for(var i = 0; i<this.x; i++){
+                    for(var j = 0; j<this.y; j++){
+                        this.map[i][j][1] = 0;
+                    }
+                }
+            }
+        }
+
+        window.onload = function(){
+            link(100,100,'a',15);/*link1('b',12,12);*/
+        }
+        function link(mapX,mapY,name,diff){
+            var link = new Link(mapX,mapY,name,diff)
+            link.creatTable();
+            link.creatBlock();
+            for(var i = 0; i < mapX; i++){
+                for(var j = 0; j < mapY; j++){
+                    var oTd = document.getElementById(name+'-'+i+'-'+j);
+                    // console.log(oTd);
+                    oTd.onclick = clickThing(i,j);
+                }
+            }
+            document.getElementById(name+'-reset').onclick = function(){
+                link.reset();
+            };
+            setInterval(function(){
+                var oTime = document.getElementById(link.name+'-time')
+                var curTime = parseInt(oTime.innerHTML);
+                oTime.innerHTML = curTime + 1;
+            },1000)
+            
+            function clickThing(i,j){
+                return function(){
+                    if(link.map[i][j][0] == 0)return;
+                    else if(link.clickFlag == 0 && link.map[i][j][0] != 0){link.firstClick(i,j)}
+                    else{
+                        if(i == link.clickX && j == link.clickY){link.clickSame(i,j);}
+                        else if(link.map[i][j][0] != link.preState){return;}
+                        else{if(link.checkClear(link.clickX,link.clickY,i,j))link.clear(link.clickX,link.clickY,i,j);}
+                    }
+                };
+            }
+        }
+
+    </script>
+    <style type="text/css"> 
+        .hidden{visibility: hidden;}
+        table{border-collapse:collapse;margin: 0 auto;border: 1px solid black;margin-top: 30px;}
+        td{width: 40px;height: 40px;/*border: 1px solid black;*/text-align: center;
+            background-size:contain;background-repeat:no-repeat; }
+        button{margin: 0 auto;width: 100px;display: block;margin-top: 30px;}
+    </style>
+</head>
+<body>
+    <div id="game-area"></div>
+</body>
+</html>

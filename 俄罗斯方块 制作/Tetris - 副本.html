@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tetris</title>
+    <script type="text/javascript">
+        // 俄罗斯方块其标准大小：行宽为10，列高为20，附加两层作为判定
+        var sizeX = 10,sizeY = 22;
+        var centerX = 5, centerY = 5; //当前活动砖块的中心
+
+        window.onload = function(){
+            tetris();
+        }
+        function tetris(){
+            creatTable();
+
+            //初始化一个多维数组
+            mainArr = new Array(sizeY);  //定义了一个全局的数组
+            for(var i=0;i<sizeY;i++){
+                mainArr[i] = new Array(sizeX);
+                for(var j=0;j<sizeX;j++){
+                    mainArr[i][j] = new Array(2);   //每一个方格有1个属性，第一个是当前状态，第二个是是否将要改变状态，其中，0代表不会发生变化，1代表即将变成0,2代表即将变成1
+                    mainArr[i][j][0] = 0;
+                    mainArr[i][j][1] = 0;
+                    changeColor(i,j,0);
+                }
+            }
+            gameStart();
+        }
+
+        //函数作用：生成行宽为10，列高为22的一个表格,其中最上方的两个处于隐藏状态，用于产生新砖块和判定胜负
+        function creatTable(){
+            var html='';
+            var oDiv = document.getElementById('game-area');
+            html+="<table>";
+            for(var i=0;i<sizeY;i++){
+                html+='<tr>';
+                for(j=0;j<sizeX;j++){
+                    if(i==1&&j==6){
+                        html+='<td id="new-block">'+i+'-'+j+'</td>';
+                    }
+                    else{html+='<td>'+i+'-'+j+'</td>';}
+                }
+               html+='</tr>';
+            }
+            html+='</table>';
+            oDiv.innerHTML = html;  
+        }
+
+        function creatNewBlock(){
+            switch(Math.ceil(Math.random()*2)){
+                case 1:changeColor(centerX,centerY,1);changeColor(centerX,centerY-2,1);changeColor(centerX,centerY-1,1);changeColor(centerX,centerY+1,1);break;
+                case 2:changeColor(centerX,centerY,1);changeColor(centerX,centerY-1,1);changeColor(centerX,centerY+1,1);changeColor(centerX-1,centerY,1);break;
+            }
+            
+        }
+
+        //将一个位置改变颜色和状态
+        // 状态值解释：0代表空位置，1代表有活动的砖块，2代表有固定的砖块
+        function changeColor(x,y,stateFlag,colorFlag){
+            var colorFlag = stateFlag;
+
+            try{
+                var oTr = document.getElementsByTagName('tr')[x];
+                var oTd = oTr.getElementsByTagName('td')[y];
+            }
+            catch(e){return 0;}
+            mainArr[x][y][0] = stateFlag;
+            var colorName;
+            switch(colorFlag){
+                case 0:colorName = 'white';break;
+                case 1:colorName = '#999';break;
+                case 2:colorName = 'red';break;
+                case 3:colorName = 'yellow';break;
+                case 4:colorName = 'blue';break;
+                default: return 0;
+            }
+            oTd.style.backgroundColor = colorName;
+            return 1;
+        }
+
+        // 函数作用：用于检查当前活动砖块是否可以向某一个方向移动，参数dirFlag：0代表下，1代表左，2代表右
+        function checkDirection(dirFlag){
+            var litX = 0;if(dirFlag == 1)litX = -1;if(dirFlag == 2)litX = 1;
+            var litY = 0;if(dirFlag == 0)litY = 1;
+
+                for(var i=0;i<sizeY;i++){
+                    for(var j=0;j<sizeX;j++){
+                        if(mainArr[i][j][0] == 1){
+                            if(dirFlag == 0 && i == 21
+                                || dirFlag == 1 && j == 0
+                                || dirFlag == 2 && j == sizeX - 1)return 0;
+                            if( mainArr[i+litY][j+litX][0] == 2)return 0;
+                        }
+                    }
+                }
+
+            return 1;
+        }
+
+        function changeDirection(flag){
+            if(flag == 0 && checkDirection(0)){
+                for(var i=sizeY-1;i>=0;i--){
+                    for(var j=sizeX-1;j>=0;j--){
+                        if(mainArr[i][j][0] == 1){
+                            changeColor(i,j,0);
+                            changeColor(i+1,j,1);
+                        }
+                    }
+                }
+                centerX++;
+            }
+            if(flag == 1 && checkDirection(1)){
+                for(var i=0;i<sizeY;i++){
+                    for(var j=0;j<sizeX;j++){
+                        if ( mainArr[i][j][0] == 1) {
+                                changeColor(i,j-1,1);
+                                changeColor(i,j,0);
+                        }
+                    }
+                }
+                centerY--;
+            }
+            if(flag == 2 && checkDirection(2)){
+                for(var i=0;i<sizeY;i++){
+                    for(var j=sizeX-1;j>=0;j--){
+                        if ( mainArr[i][j][0] == 1) {
+                                changeColor(i,j+1,1);
+                                changeColor(i,j,0);
+                        }
+                    }
+                }
+                centerY++;
+            }
+        }
+
+        function rotate(){
+            // alert(centerX +'-'+centerY);
+            // centerX--;
+            for(var i=0;i<sizeY;i++){
+                for(var j=0;j<sizeX;j++){
+                    if ( mainArr[i][j][0] == 1){
+                        if( centerX + centerY - j >= 0 && centerX + centerY - j < sizeY &&
+                            centerY - centerX + i >= 0 && centerY - centerX + i < sizeX &&
+                            mainArr[centerX + centerY - j][centerY - centerX + i][0] != 2) {
+                            if(mainArr[i][j][1] == 0)mainArr[i][j][1] = 1;
+                            if(mainArr[centerX + centerY - j][centerY - centerX + i][0] == 0
+                                || mainArr[centerX + centerY - j][centerY - centerX + i][0] == 1){
+                                mainArr[centerX + centerY - j][centerY - centerX + i][1] = 2;
+                            }
+                            else {
+                                for(var i=0;i<sizeY;i++){
+                                    for(var j=0;j<sizeX;j++){
+                                        mainArr[i][j][1] = 0;
+                                    }
+                                }
+                                return 0;
+                            };
+                        }
+                        else {
+                            for(var i=0;i<sizeY;i++){
+                                for(var j=0;j<sizeX;j++){
+                                    mainArr[i][j][1] = 0;
+                                }
+                            }
+                            return 0;
+                        }
+                    }    
+                };
+                    // else{alert(centerX + centerY - j + '-' + centerX + centerY - j)}
+            }
+
+                // for(var q=0;q<sizeY;q++){
+                //     for(var w=0;w<sizeX;w++){
+                //         var oTd = document.getElementsByTagName('tr')[q].getElementsByTagName('td')[w];
+                //         oTd.innerHTML = q+','+w+','+mainArr[q][w][0]+','+mainArr[q][w][1];
+                //     }
+                // }
+
+
+            for(var i=0;i<sizeY;i++){
+                for(var j=0;j<sizeX;j++){
+                    if ( mainArr[i][j][1] == 1) {
+                        changeColor(i,j,0);
+                        mainArr[i][j][1] = 0;
+                    }
+                    if ( mainArr[i][j][1] == 2) {
+                        changeColor(i,j,1);
+                        mainArr[i][j][1] = 0;
+                    }
+                }
+            }
+                // for(var q=0;q<sizeY;q++){
+                //     for(var w=0;w<sizeX;w++){
+                //         var oTd = document.getElementsByTagName('tr')[q].getElementsByTagName('td')[w];
+                //         oTd.innerHTML = q+','+w+','+mainArr[q][w][0]+','+mainArr[q][w][1];
+                //     }
+                // }
+            return;
+        }
+
+        function ifClear(){
+            outer:
+            for(var i=sizeY-1;i<=2;i--){
+                for(var j=0;j<=sizeX;j++){
+                    if(mainArr[i][j][0] == 0)break outer;
+                }
+
+                //当有行满时，执行下列语句
+                for(var j=0;j<=sizeX;j++){
+                    changeColor(i,j,0);
+                }
+                for(var k=i-1;k<=2;k++){
+                    for(var j=0;j<=sizeX;j++){
+                        if(mainArr[k][j][0] == 2){
+                            changeColor(k+1,j,2);
+                            changeColor(k,j,0);
+                        }
+                    }
+                }
+            }
+        }
+
+        function gameStart(){
+            var blockFlag = false; //判断是否应该使活动砖块转变为固定砖块
+
+            //按键事件
+            document.onkeydown = function(event){
+                var e = event || window.event || arguments.callee.caller.arguments[0];
+                if(e && e.keyCode==39){changeDirection(2);}
+                if(e && e.keyCode==37){changeDirection(1);}
+                if(e && e.keyCode==40){dicDown();}
+                if(e && e.keyCode==38){rotate();}
+
+            }
+
+            creatNewBlock();
+
+            setInterval(dicDown,20000)
+
+            function dicDown(){
+                //若有砖块下方为固定砖块，则屏幕内所有活动砖块转变为固定砖块
+                if(!checkDirection(0)){
+                    for(var k=0;k<sizeY;k++){
+                        for(var l=0;l<sizeX;l++){
+                            if(mainArr[k][l][0] == 1){
+                                changeColor(k,l,2);
+                            }
+                        }
+                        blockFlag = true;
+                    };
+                }
+                // 使运动方块向下一格
+                // 为防止之前的更改在当前步被再次更改，对表格的遍历从下往上开始
+                changeDirection(0);
+                if(blockFlag){ifClear();centerX = 1;centerY = 5;creatNewBlock();blockFlag = false;  }
+
+                for(var q=0;q<sizeY;q++){
+                    for(var w=0;w<sizeX;w++){
+                        var oTd = document.getElementsByTagName('tr')[q].getElementsByTagName('td')[w];
+                        oTd.innerHTML = q+','+w+','+mainArr[q][w][0]+','+mainArr[q][w][1];
+                    }
+                }
+                
+            }
+
+
+        }
+
+
+
+
+    </script>
+    <style type="text/css">
+        table{border-collapse:collapse;margin: 0 auto;}
+        td{width: 80px;height: 80px;border: 1px solid black;text-align: center;}
+    </style>
+
+</head>
+<body>
+    <div id="game-area"></div>
+</body>
+</html>

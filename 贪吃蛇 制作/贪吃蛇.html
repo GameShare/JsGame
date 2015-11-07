@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>贪吃蛇！！！</title>
+    <script type="text/javascript">
+    /*config START*/    
+        var size = 15; //游戏区域大小
+    /*config END*/    
+
+        //注意：document.write 不能在文档加载之后使用
+        window.onload = function(){
+            snake();    //贪吃蛇游戏
+        }
+
+        function snake(){
+            oStart = document.getElementById('start');
+            document.getElementById('creat-table').onclick = function(){
+                size = parseInt(document.getElementById('size').value);
+                if(!size > 0){alert('请输入正确的数字！');return;}
+                if(size > 30){alert('输入的数字大于30，请重新输入！');return;}
+                creatTable(size);
+                oStart.disabled = false;
+                //初始化一个多维数组
+                mainArr = new Array(size);  //定义了一个全局的数组
+                for(var i=0;i<size;i++){
+                    mainArr[i] = new Array(size);
+                    for(var j=0;j<size;j++){
+                        mainArr[i][j] = new Array(2);   //每一个方格有两个属性，第一个是当前状态，第二个是步数
+                        mainArr[i][j][1] = 0;
+                        changeColor(i,j,0);
+                    }
+                }
+                changeColor(0,0,1,1);changeColor(0,1,1,2);changeColor(0,2,2,3);
+
+                for(var i=0;i<size;i++){
+                    for(var j=0;j<size;j++){
+                        var oTd = document.getElementsByTagName('tr')[i].getElementsByTagName('td')[j];
+                        oTd.flag = i+','+j;
+                        oTd.onclick = function(){
+                            // alert(this.flag);
+                            var fx = parseInt(this.flag.split(",")[0]);
+                            var fy = parseInt(this.flag.split(",")[1]);
+                            changeColor(fx,fy,4);
+                        }
+                    }
+                }
+            }
+            oStart.onclick = function(){
+                gameStart();
+                creatStar();
+            }
+        }
+
+        //函数作用：生成宽高均为n的一个表格
+        function creatTable(n){
+            var i,j;
+            var html='';
+            var oDiv = document.getElementById('game-area');
+            html+="<table>";
+            for(i=0;i<n;i++){
+                html+='<tr>';
+                for(j=0;j<n;j++){
+                    html+='<td></td>';
+                }
+               html+='</tr>';
+            }
+            html+='</table>';
+            oDiv.innerHTML = html;  
+        }
+
+        //函数作用：随机生成食物
+        function creatStar(){
+            var a = -1;var b = -1;
+            while(a == -1 || mainArr[a][b][1] != 0 || a == size || b == size){
+                a = Math.floor(Math.random()*size);
+                b = Math.floor(Math.random()*size);
+            }
+            changeColor(a,b,3);
+            // console.log(a+'和'+b);
+        }
+
+        //函数作用：将一个位置改变颜色。参数1和2  ：横纵位置。参数3：颜色（0代表白色，1代表黑色，2代表红色，3代表黄色） 参数4：可选，当前步数 输出：0代表染色失败，1代表染色成功
+        function changeColor(x,y,colorFlag,step){
+            try{
+                var oTr = document.getElementsByTagName('tr')[x];
+                var oTd = oTr.getElementsByTagName('td')[y];
+            }
+            catch(e){return 0;}
+            var colorName;
+            switch(colorFlag){
+                case 0:colorName = 'white';break;
+                case 1:colorName = '#999';break;
+                case 2:colorName = 'red';break;
+                case 3:colorName = 'yellow';break;
+                case 4:colorName = 'blue';break;
+                default: return 0;
+            }
+            if(colorFlag == 4 && mainArr[x][y][1] == 4){colorName = 'white';colorFlag = 0;}
+            oTd.style.backgroundColor = colorName;
+            mainArr[x][y][1] = colorFlag;
+            if(step != undefined){
+                mainArr[x][y][2] = step;
+                oTd.innerHTML = step;
+            }
+            return 1;
+        }
+
+
+        //函数作用：游戏主程序
+        function gameStart(){
+            var dirFlag = 2;    //初始化方向Flag，1/2/3/4分别代表上、右、下、左
+            var delay = 200;   //初始化设置间隔
+            var snakeLen = 3;   //初始化设置蛇的长度
+            var snakeNum = 4;   //蛇已行进的步数
+            var redX = 0;
+            var redY = 2;
+            var oScore = document.getElementById('score');
+            var pauseFlag = 1;  //1代表开始,0代表暂停
+
+            document.onkeydown = function(event){
+                var e = event || window.event || arguments.callee.caller.arguments[0];
+                if(e && e.keyCode==38 && dirFlag != 3){dirFlag = 1;}
+                if(e && e.keyCode==39 && dirFlag != 4){dirFlag = 2;}
+                if(e && e.keyCode==40 && dirFlag != 1){dirFlag = 3;}
+                if(e && e.keyCode==37 && dirFlag != 2){dirFlag = 4;}
+                if(e && e.keyCode==81){ //Q键加速
+                    clearInterval(theStep);
+                    delay = parseInt(delay/1.4);
+                    theStep = setInterval(stepIn,delay); 
+                }
+                if(e && e.keyCode==87){ //W键减速
+                    clearInterval(theStep);
+                    delay = parseInt(delay*1.4);
+                    theStep = setInterval(stepIn,delay); 
+                }
+                if(e && e.keyCode==80){ //P键暂停
+                    if(pauseFlag == 1){clearInterval(theStep);pauseFlag = 0}
+                    else{theStep = setInterval(stepIn,delay);pauseFlag = 1}
+                }
+            }
+            theStep = setInterval(stepIn,delay); 
+
+            function stepIn(){
+                changeColor(redX,redY,1);
+                switch(dirFlag){
+                    case 1: redX--;break;
+                    case 2: redY++;break;
+                    case 3: redX++;break;
+                    case 4: redY--;break;
+                    default: return 0;
+                }
+
+                //死亡的判断
+                if(redX == -1 || redX == size || redY == -1 || redY == size || mainArr[redX][redY][1] == 1 || mainArr[redX][redY][1] == 4){
+                    alert('Game Over! 您的最终分数是 ：'+(snakeLen-3)+' 分');
+                    clearInterval(theStep);
+                    return 0;
+                }
+
+                //得到食物的判断
+                if(mainArr[redX][redY][1] == 3){
+                    snakeLen++;
+                    oScore.innerHTML = snakeLen - 3;
+                    creatStar();
+                }
+
+
+                changeColor(redX,redY,2,snakeNum);
+                
+                for(var i=0;i<size;i++){
+                    for(var j=0;j<size;j++){
+                        if(mainArr[i][j][2] == snakeNum-snakeLen && mainArr[i][j][1] != 3){changeColor(i,j,0)}
+                    }
+                }
+
+                snakeNum++;
+            }  
+        }
+    </script>
+    <style type="text/css">
+        *{margin: 0;padding: 0;}
+        table{border-collapse:collapse;margin: 0 auto;}
+        /*border-collapse 属性设置表格的边框是否被合并为一个单一的边框，还是像在标准的 HTML 中那样分开显示。*/
+        td{width: 40px;height: 40px;border: 1px solid black;text-align: center;}
+        #start{}
+        .btnDiv{width: 600px;margin: 20px auto;}
+        button{width: 100px;height:20px;}
+        p{display: inline;}
+    </style>
+</head>
+<body>
+    <div class="btnDiv">
+        <label for="size">区域大小：</label>
+        <input type="text" id="size" value="15">
+        <button id="creat-table">制作场景</button>
+        <button id="start" disabled>开始游戏</button>
+        <p>当前分数：<span id='score'>0</span></p>
+    </div>
+    <div id="game-area"></div>
+</body>
+</html>
