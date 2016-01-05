@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BeeGame</title>
+    <script src="jquery-1.8.3.min.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function(){
+
+            $('#start').click(function(){
+                $(this).hide();
+                beeGame();
+            })
+
+            var beeGame = (function(){
+
+                // jQuery 元素列表
+                var oPlayer = $('#player');
+                var oGameDiv = $('#gameDiv');
+                var oScore = $('#score');
+                var oStage = $('#stage');
+                var oStart = $('#start');
+
+                // 可修改的游戏参数
+                var plSpeed = 15;   // 自机速度
+                var mapAll = [      
+                // 地图数组，其中 map：敌机组成  speed：表格移动速度 速度 clock：间隔 col：敌机列数 line：敌机行数
+                    {
+                        map:[
+                            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 
+                            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 
+                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 
+                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 
+                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 
+                        ],
+                        speed: 10,
+                        clock: 2000,
+                        row: 10,
+                        line: 5
+                    },{
+                        map:[
+                            1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                            1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 
+                            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 
+                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 
+                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 
+                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 
+                        ],
+                        speed: 20,
+                        clock: 1000,
+                        row: 10,
+                        line: 7
+                    }
+
+                ];
+                // 敌机数组，为保证一一对应，零号元素为空。
+                var beeAll = [
+                    {},{
+                        tag : '<img src="images\\bee1.png" />',     // 应该插入的图片标签
+                        hp : 3,                                     // 血量
+                        speed : 7,                                  // 敌机速度
+                        score : 3                                   // 击毁敌机能得到的分数
+                    },{
+                        tag : '<img src="images\\bee2.png" />',
+                        hp : 2,
+                        speed : 5,
+                        score : 2
+                    },{
+                        tag : '<img src="images\\bee3.png" />',
+                        hp : 1,
+                        speed : 2,
+                        score : 1
+                    }
+                ]
+
+
+                // 理论上不可更改的游戏参数
+                var plW = 46;   // 自机宽度
+                var plH = 60;   // 自机高度
+                var buW = 6;    // 子弹宽度
+                var buH = 30;   // 子弹高度
+                var enW = 40;   // 敌机宽度
+                var enH = 28;   // 敌机高度
+
+                // Flag在此
+                var stage = 0;          // 当前关卡
+                var crtBltFlag = 0;     // 判断是否可以产生子弹，0代表可以，1代表不可以
+                var plMoveLFlag = 0;    // 判断自机是否在往左动
+                var plMoveRFlag = 0;    // 判断自机是否在往右动
+                var tableMoveFlag = 1;  // 判断表格移动的方向，1代表右移，-1代表左移
+                var tableChangeDir = 0; // 判断当前表格是否转向
+                var leftEnemy = 0;      // 当前剩余的敌机数量,同时在产生敌机时作为计数变量使用
+                var score = 0;          // 当前分数
+
+                // 辅助变量
+                var noStopLeft;
+                var noStopRight;
+                var setAloneTimer;
+                var tableTimer;
+                var buTimer;
+                var goAloneTimer;
+
+                gameStart();
+
+                // 游戏开始
+                function gameStart(){
+
+                    $('#stage span').text(1);
+                    $('#score span').text(0);
+
+                    oPlayer.show();
+                    oScore.show();
+                    oStage.show();
+                    creatTable(stage);
+
+                    // 全局计时器
+                    setAloneTimer = setInterval(enSetAlone,mapAll[stage].clock);  // 敌机单兵作战——出击计时器
+                    tableTimer = setInterval(moveTable,300);    // 敌机方阵移动计时器 
+                    buTimer = setInterval(moveBullet,50);       // 子弹移动计时器
+                    goAloneTimer = setInterval(enGoAlone,30);   // 敌机单兵作战——进击计时器
+
+
+
+                    // 侦听键盘事件
+                    // 37左 39右 32空格
+                    // 惨痛的事实证明，左移动和右移动的Flag和Timer不能共享！
+                    // 空格键应该允许长按
+                    document.onkeydown = function(event){
+                        var e = event || window.event || arguments.callee.caller.arguments[0];
+                        if(e && e.keyCode==32){
+                            if(crtBltFlag)return;
+                            creatBullet();
+                            crtBltFlag = 1;
+                            noBullet = setInterval(function(){creatBullet()},300);
+                        }
+                        if(e && e.keyCode==37){
+                            if(plMoveLFlag)return;
+                            movePlayer(1);
+                            plMoveLFlag = 1;
+                            noStopLeft = setInterval(function(){movePlayer(1)},50);
+                        } 
+                        if(e && e.keyCode==39){
+                            if(plMoveRFlag)return;
+                            movePlayer(2);
+                            plMoveRFlag = 1;
+                            noStopRight = setInterval(function(){movePlayer(2)},50);
+                        }
+                    }
+                    document.onkeyup = function(event){
+                        var e = event || window.event || arguments.callee.caller.arguments[0];
+                        if(e && e.keyCode==37){plMoveLFlag = 0;clearInterval(noStopLeft);} 
+                        if(e && e.keyCode==39){plMoveRFlag = 0;clearInterval(noStopRight);} 
+                        if(e && e.keyCode==32){
+                            crtBltFlag = 0;
+                            clearInterval(noBullet)
+                        }
+                    }
+                }
+
+                // 移动自机 
+                // dir：移动的方向，1左2右
+                function movePlayer(dir){
+                    if(plMoveLFlag == 1 && plMoveRFlag == 1)return;
+                    var plLeft = parseInt(oPlayer.css('left'));
+                    if(dir == 1){
+                        if(plLeft <= plSpeed){return;}
+                        plLeft -= plSpeed;
+                        oPlayer.css('left',plLeft+'px');
+                    }
+                    if(dir == 2){
+                        if(plLeft >= oGameDiv.width() - plW - plSpeed){return;}
+                        plLeft += plSpeed;
+                        oPlayer.css('left',plLeft+'px');
+                    }
+                }
+
+                // 发射子弹
+                function creatBullet(){
+                    var buNewLeft = parseInt(oPlayer.css('left')) + plW/2 - buW/2;
+                    var buNewTop = parseInt(oPlayer.css('top')) - buH - 5;
+                    $('<div class="bullet"></div>').appendTo(oGameDiv).css({'left':buNewLeft+'px','top':buNewTop+'px'})
+                }
+
+                // 移动子弹，并判断是否相撞
+                function moveBullet(){
+                    $('.bullet').each(function(){
+                        var top = parseInt($(this).css('top'));
+
+                        // 如果超出边界
+                        if(top < 0){$(this).remove();return;}
+
+                        // 如果撞到敌机
+                        var butOffTop = $(this).offset().top;
+                        var butOffLeft = $(this).offset().left;
+                        var biuFlag = 0;    // 判断子弹和敌机是否相撞，1代表相撞，0代表未相撞
+
+                        $('#enemyTable img').each(function(){
+                            if(biuFlag)return;  // 若子弹事先与别的敌机相撞，则不用再判断
+                            var enOffTop = $(this).offset().top;
+                            var enOffLeft = $(this).offset().left;
+                            if(enOffLeft + enW < butOffLeft ||  // 敌机的右边界在子弹左边界的左边
+                               enOffLeft > butOffLeft + buW ||  // 敌机的左边界在子弹右边界的右边
+                               enOffTop + enH < butOffTop ||    // 敌机的下边界在子弹上边界的上边
+                               enOffTop > butOffTop + buH){}    // 敌机的上边界在子弹下边界的下边
+                            else{
+                                biuFlag = 1;
+                                var hp = $(this).data('hp') - 1;
+                                if(!hp){
+                                    scorePlus(beeAll[$(this).data('type')].score);
+                                    $(this).remove();
+                                    leftEnemy--;
+                                    // 如果没有了敌机，就进入下一关
+                                    if(!leftEnemy){
+                                        stage++;
+                                        if(mapAll[stage] === undefined){
+                                            score = 0;
+                                            clearInterval(tableTimer);
+                                            clearInterval(tableTimer);
+                                            clearInterval(buTimer);
+                                            clearInterval(goAloneTimer);
+                                            clearInterval(setAloneTimer);
+                                            alert('Congraduations!You Have Passed All Stages!')
+                                            oPlayer.hide();
+                                            oScore.hide();
+                                            oStage.hide();
+                                            oStart.show();
+                                            return;
+                                        }
+                                        $('#stage span').text(stage + 1);
+                                        clearInterval(setAloneTimer);
+                                        
+                                        setAloneTimer = setInterval(enSetAlone,mapAll[stage].clock);
+                                        creatTable(stage);
+                                    }
+                                }
+                                else($(this).data('hp',hp));
+                            }
+                        })
+                        if(biuFlag){
+                            $(this).remove();
+                            return;
+                        }
+
+                        // 以上都不满足，就让子弹飞吧
+                        $(this).css('top',top - 15 +'px')
+                    })
+                }
+
+                // 制作敌机的表格，并添加敌机
+                function creatTable(stage){
+                    // 如果有敌机表格，就把它删掉
+                    $('#enemyTable').remove();
+
+                    var line = mapAll[stage].line;
+                    var row = mapAll[stage].row;
+
+                    var curEnemy = 0;   // 正在遍历地图中敌机的序号
+
+                    var tableLeft = oGameDiv.width()/2 - row*(enW+9)/2;
+                    var tableTop = 50;
+
+                    // 开始制作敌机表格
+                    var table = '<table id="enemyTable"><tbody>';
+                    for(var i = 0; i < line; i++){
+                        table += '<tr>';
+                        for(var j = 0; j < row; j++){
+                            table += '<td>';
+
+                            // 判断敌机类型
+                            var type = mapAll[stage].map[leftEnemy];
+                            table += beeAll[type].tag;
+                            table += '</td>';
+                            leftEnemy++;
+                        }
+                        table += '</tr>';
+                    }
+                    table += '</tbody></table>';
+                    $(table).appendTo(oGameDiv).css({'left':tableLeft+'px','top':tableTop+'px'})
+
+                    // 在另一个函数中添加生命值
+                    addHp();
+                }
+
+                // 为刚建好的敌机添加生命值数据
+                function addHp(){
+                    $('#enemyTable img').each(function(){
+                        switch($(this).attr('src')){
+                            case 'images\\bee1.png':
+                                $(this).data({'type' : 1,'hp' : beeAll[1].hp});
+                                break;
+                            case 'images\\bee2.png':
+                                $(this).data({'type' : 2,'hp' : beeAll[2].hp});
+                                break;
+                            case 'images\\bee3.png':
+                                $(this).data({'type' : 3,'hp' : beeAll[3].hp});
+                                break;
+                        }
+                    })
+                }
+
+                // 移动敌机表格
+                function moveTable(){
+                    var oTable = $('#enemyTable');
+                    var left = parseInt(oTable.css('left'));
+                    var top = parseInt(oTable.css('top'));
+                    var tableSpeed = mapAll[stage].speed;
+                    // 左右边界判断
+                    if((oTable.width() + left > oGameDiv.width() - tableSpeed || left < tableSpeed) && !tableChangeDir){
+                        tableMoveFlag *= -1;
+                        oTable.css('top',top+tableSpeed+'px');
+                        tableChangeDir = 1;
+                        return;
+                    }
+                    tableChangeDir = 0;
+                    oTable.css('left',left+tableMoveFlag * tableSpeed + 'px');
+                }
+
+                // 敌机单兵作战——出击
+                function enSetAlone(){
+                    var oAllEn = $('#enemyTable img');
+                    var randEn = Math.floor(Math.random()*oAllEn.size());
+                    oAllEn.eq(randEn).addClass('goAlone');
+                }
+
+                // 敌机单兵作战——进击
+                function enGoAlone(){
+                    $('#enemyTable img.goAlone').each(function(){
+
+                        var top = parseInt($(this).css('top'));
+                        var left = parseInt($(this).css('left'));
+
+                        var type = $(this).data('type');
+                        var speed = beeAll[type].speed;
+
+                        // 先计算偏移量
+                        var x = oPlayer.offset().left - $(this).offset().left;
+                        var y = oPlayer.offset().top - $(this).offset().top;
+                        var changeX = speed / Math.sqrt(x*x+y*y) * x;
+                        var changeY = speed / Math.sqrt(x*x+y*y) * y;
+
+                        $(this).css('top',top + changeY +'px')
+                        $(this).css('left',left + changeX +'px')
+
+                        // 判断是否Miss
+                        var plTop = oPlayer.offset().top;
+                        var plLeft = oPlayer.offset().left;
+                        var enOffTop = $(this).offset().top;
+                        var enOffLeft = $(this).offset().left;
+
+                        if(enOffLeft + enW < plLeft ||  // 敌机的右边界在子弹左边界的左边
+                           enOffLeft > plLeft + plW ||  // 敌机的左边界在子弹右边界的右边
+                           enOffTop + enH < plTop ||    // 敌机的下边界在子弹上边界的上边
+                           enOffTop > plTop + plH){}    // 敌机的上边界在子弹下边界的下边
+                        else {alert("You are Miss!The Score is " + score +' !');$('#enemyTable').remove();}
+                    })
+                }
+
+                // 创建分数标签或加分 n:要加的分数
+                function scorePlus(n){
+                    score += n;
+                    $('#score span').text(score);
+                }
+            });
+        })
+    </script>
+</head>
+<style type="text/css">
+    #gameDiv{width: 4000px;height: 2400px;background-color: black;margin: 0 auto;position: relative;}
+    #player{position: absolute;top:2000px;left: 674px;display:none;}
+    #gameDiv .bullet{width: 6px;height: 30px;background-color: white;position: absolute;}
+    #enemyTable{position: absolute;}
+    #enemyTable td{width: 45px;height: 33px;}
+    #enemyTable img{position: relative;top:0;left:0;}
+    #score{font-family: 微软雅黑;color: white;font-size: 30px;padding: 30px;display:none;}
+    #score span{color: yellow;}
+    #stage{font-family: 微软雅黑;color: white;font-size: 30px;position: absolute;right: 60px;top: 30px;display:none;}
+    #start{width: 300px;height: 100px;text-align: center;font-size: 60px;border: 2px solid white;color: white;font-family: 微软雅黑;cursor: pointer;position: absolute;top: 300px;left:570px;}
+    #start:hover{background-color: red;}
+    #start span{line-height: 100px;height: 100px;}
+</style>
+<body>
+    <div id="gameDiv">
+        <img src="images\airP.png" id="player">
+        <div id="score">Score ： <span>0</span></div>
+        <div id="stage">Stage <span>1</span></div>
+        <div id="start"><span>Start</span></div>
+    </div>
+</body>
+</html>
