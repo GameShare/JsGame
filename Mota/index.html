@@ -8,7 +8,6 @@
         window.onload = function(){
 
             MoTaGame();
-            console.log(map[2][11].downX)
 
             function MoTaGame(){
 
@@ -28,6 +27,26 @@
 
                 var oMessage = document.getElementById("message");
 
+                var oSaying = document.getElementById("saying");
+                var oWords = document.getElementById("words");
+
+                var oBuying = document.getElementById("buying");
+                var oBuyingIntro = document.getElementById("buyingIntro");
+                var oBuyingMoney = document.getElementById("buyingMoney");
+
+                var oBuyLife = document.getElementById("buyLife");
+                var oBuyAttack = document.getElementById("buyAttack");
+                var oBuyGuard = document.getElementById("buyGuard");
+                var oBuyNone = document.getElementById("buyNone");
+
+                var oLifeNum = document.getElementById("lifeNum");
+                var oAttackNum = document.getElementById("attackNum");
+                var oGuardNum = document.getElementById("guardNum");
+
+                var oNoMoney = document.getElementById("noMoney");
+                var oBuyingNoMoney = document.getElementById("buyingNoMoney");
+                var oBuyingContinue = document.getElementById("buying-continue");
+
                 // 在游戏中随时会变的参数
                 var player = {
                     x:0,        // 主角的位置X
@@ -39,6 +58,13 @@
                     gold:0      // 主角的金币
                 }
 
+                // 所有事件触发与否的Flag,0代表未触发，1代表已触发
+                var eventFlag = {
+                    faceBossAt3F : 0,
+                    beatGateKeeperBAt2F : 0,
+                    beatGateKeeperAAt2F : 0,
+                }
+
                 // 敌方的数据信息，仅在战斗的时候启用
                 var enemy = {
                     chsName:"", 
@@ -48,6 +74,7 @@
                 }
 
                 var currentFloor;       // 当前楼层
+                var dealNum;            // 与奸商商店的已交易次数
 
                 var key = {
                     yellowKey  :0,              // 黄钥匙的数量
@@ -59,51 +86,73 @@
                 // 在游戏中理论上不会变的参数
                 var doorSpeed = 50;     // 开关门的速度
                 var battleSpeed = 200;  // 战斗中一次攻击的速度
+                var activeSpeed = 200;  // 活跃的速度
 
 
-                var moveFlag = 1;        // 判断是否可以进行操作，1 代表可以， 0 代表不可以
-                var battleFlag = 0;      // 是否刚进行或打算进行一场战斗，1 代表是，0 代表不是。若为 1 ，则应该在下一次移动中刷新数据，并将该变量归0
+                var openDoorFlag = 0;           // 是否正在开关门和开关墙
+                var moveFlag     = 1;           // 判断是否可以进行操作，1 代表可以， 0 代表不可以
+                var battleFlag   = 0;           // 是否刚进行或打算进行一场战斗，1 代表是，0 代表不是。若为 1 ，则应该在下一次移动中刷新数据，并将该变量归0
+                var activeFlag   = 0;           // 判断敌人和老人动的状态，只有 1 和 0 两种不同的取值
+                var HFlag        = 0;           // 怪物手册是否打开
+                var HPage        = 1;           // 当前怪物手册的页数
 
-                creatTable();
+                creatTable("gameTable", 11, 11);
                 init();
                 drawFloor();
                 gameStart();
                 showData()
 
+
                 function gameStart(){
 
                     // 这里 键盘事件 设置
                     document.onkeydown = function(event){
+                        var e = event || window.event || arguments.callee.caller.arguments[0];
+                        
+                        // 按下 H 键, 开启怪物手册
+                        if(e && e.keyCode == 72){
+                            toggleEnemyHandbook();
+                        }
 
                         // 如果 moveFlag 为 0 ，则此时禁止任何操作
-                        if(!moveFlag) return false;
-                        var e = event || window.event || arguments.callee.caller.arguments[0];
-                        if(e && e.keyCode==37||38||39||40){
+                        if(moveFlag && (e && e.keyCode == 37 || e && e.keyCode == 38 || e && e.keyCode == 39 || e && e.keyCode == 40)){
                             // 主角的移动事件
                             playerMove(e && e.keyCode);
                         }
 
+                        return false;
                     }
+
+                    // 使敌人和老人动起来的计时器
+                    setInterval(function(){
+                        if(activeFlag == 1){activeFlag = 0;}
+                        else {activeFlag = 1; } 
+                        drawFloor();
+                    },activeSpeed)
+
                 }
 
+                // 数据初始化
                 function init(){
 
                     // 当前楼层
-                    currentFloor = 1;
+                    currentFloor = 13;
+
+                    dealNum = 1;
 
                     player = {
-                        x:10,
+                        x:9,
                         y:5,
                         dir:4,
                         life:1000,
-                        attack:15,
-                        guard:15,
+                        attack:50,
+                        guard:50,
                         gold:0 
                     }
 
                     key = {
-                        yellowKey : 0,
-                        blueKey   : 0,
+                        yellowKey : 10,
+                        blueKey   : 10,
                         redKey    : 0
                     }
                 }
@@ -134,6 +183,9 @@
 
                     drawFloor();
 
+                    // 此处，判断在特定位置发生的事件
+                    placeEvent(currentFloor, player.x, player.y);
+
                     // 判断是否可以移动，并执行若发生移动的事件
                     function checkMove(){
                         if(checkX < 0 || checkX > 10 || checkY < 0 || checkY > 10) return false;
@@ -141,9 +193,6 @@
                             case "none":return true;
                             case "wall":{
                                 switch(map[currentFloor][checkX][checkY].f){
-                                    case "normal":
-                                    case "iconWall":
-                                    return false;
                                     case "darkNormal":{
                                         openDoorAndWall(currentFloor, checkX, checkY);
                                         return false;
@@ -167,6 +216,7 @@
                                 }
                                 return false;
                             }
+
                             // 如果是物品，则先根据物品类型加点，再将物品清除，显示加点后的数字，最后使人物移动
                             case "goods":{
                                 var time = parseInt(currentFloor/10)+1;
@@ -184,6 +234,20 @@
                                 return true;
                             }
 
+                            case "sword":{
+                                player.attack += swordData[map[currentFloor][checkX][checkY].f].attack;
+                                map[currentFloor][checkX][checkY].t = "none";
+                                showData();
+                                return true;
+                            }
+
+                            case "shield":{
+                                player.guard += shieldData[map[currentFloor][checkX][checkY].f].guard;
+                                map[currentFloor][checkX][checkY].t = "none";
+                                showData();
+                                return true;
+                            }
+
                             case "enemy":{
 
                                 battleFlag = 1;
@@ -196,24 +260,16 @@
 
                                 showData();
 
+                                var result = calDemage(map[currentFloor][checkX][checkY].f)
+
                                 // 先行判断敌方防御和己方攻击的关系，若打不动，则返回false
-                                if(enemyData[map[currentFloor][checkX][checkY].f].guard >= player.attack) {
+                                if(result === "Inf") {
                                     showMessage("你打不动他！")
                                     clearEnemyData()
                                     return false;
                                 }
-                                var tempPlayerLife = player.life;
-                                var tempEnemyLife = enemyData[map[currentFloor][checkX][checkY].f].life;
 
-                                // 进行战斗模拟，预估战斗结果
-                                while(true){
-                                    tempEnemyLife -= player.attack - enemyData[map[currentFloor][checkX][checkY].f].guard;
-                                    if(tempEnemyLife < 0)break;
-                                    tempPlayerLife -= enemyData[map[currentFloor][checkX][checkY].f].attack - player.guard < 0 ? 0 :enemyData[map[currentFloor][checkX][checkY].f].attack - player.guard;
-                                    if(tempPlayerLife < 0)break;
-                                }
-
-                                if(tempPlayerLife < 0){
+                                if(result > player.life){
                                     showMessage("你的生命值太低，打不过他！")
                                     clearEnemyData()
                                     return false;
@@ -250,16 +306,123 @@
                                 }
                             }
 
+                            case "NPC":{
+                                var talkName = map[currentFloor][checkX][checkY].f + currentFloor
+                                talkWithNPC(talkName,currentFloor,checkX,checkY)
+                                return false;
+                            }
+
+                            case "bigDealer":{
+                                if(map[currentFloor][checkX][checkY].f == "bigDealerM"){
+                                    dealWithBigDealer();
+                                }
+                            }
+
                         }
 
-                        return true;
+                        return false;
                     }
+
+                    // 处理与奸商商店交易的相关事宜
+                    // 商店的价钱为 10n(n - 1) + 20 其中n为已交易的次数
+                    // 商店可以买的生命量为 n*100；n=第几次买
+                    // 在这个函数里面，所有的 setTimeout 都是为了避免方向键所带来的对商店操作的误操作！
+                    function dealWithBigDealer(){
+
+                        moveFlag = 0;
+                        oBuying.style.visibility = "visible"
+
+                        if(player.gold < 10 * dealNum * (dealNum - 1) + 20){
+
+                            oBuyingNoMoney.innerHTML = 10 * dealNum * (dealNum - 1) + 20;
+
+                            oBuyingIntro.style.display = "none";
+                            oBuyLife.style.display = "none";
+                            oBuyAttack.style.display = "none";
+                            oBuyGuard.style.display = "none";
+                            oBuyNone.style.display = "none";
+
+                            oNoMoney.style.display = "block";
+                            oBuyingContinue.style.display = "block";
+
+                            setTimeout(function(){
+                                window.onkeydown = function(){
+                                    endDeal();
+                                }
+                            },300);
+                        }
+                        else{
+
+                            oBuyingIntro.style.display = "block";
+                            oBuyLife.style.display = "block";
+                            oBuyAttack.style.display = "block";
+                            oBuyGuard.style.display = "block";
+                            oBuyNone.style.display = "block";
+
+                            oBuyingContinue.style.display = "none";
+                            oNoMoney.style.display = "none";
+
+                            var time = parseInt(currentFloor/10)+1;
+
+                            oBuyingMoney.innerHTML = 10 * dealNum * (dealNum - 1) + 20;
+                            oLifeNum.innerHTML = 100 * dealNum;
+                            oAttackNum.innerHTML = 2 * time;
+                            oGuardNum.innerHTML = 4 * time;
+
+                            setTimeout(function(){
+                                window.onkeydown = function(){
+                                    var e = event || window.event || arguments.callee.caller.arguments[0];
+                                    switch(e && e.keyCode){
+                                        case 49: case 97: oBuyLife.style.backgroundColor = "#14d855";break;
+                                        case 50: case 98: oBuyAttack.style.backgroundColor = "#14d855";break;
+                                        case 51: case 99: oBuyGuard.style.backgroundColor = "#14d855";break;
+                                        default: oBuyNone.style.backgroundColor = "#14d855";
+                                    }
+                                }
+                            },300);
+
+                            setTimeout(function(){
+                                window.onkeyup = function(){
+                                    var e = event || window.event || arguments.callee.caller.arguments[0];
+                                    switch(e && e.keyCode){
+                                        case 49: case 97: player.life += parseInt(oLifeNum.innerHTML);player.gold -= parseInt(oBuyingMoney.innerHTML);dealNum++;break;
+                                        case 50: case 98: player.attack += parseInt(oAttackNum.innerHTML);player.gold -= parseInt(oBuyingMoney.innerHTML);dealNum++;break;
+                                        case 51: case 99: player.guard += parseInt(oGuardNum.innerHTML);player.gold -= parseInt(oBuyingMoney.innerHTML);dealNum++;break;
+                                    }
+                                    endDeal();
+                                }
+                            },300)
+
+
+                            oBuyLife.onclick = function(){player.life += parseInt(oLifeNum.innerHTML);player.gold -= parseInt(oBuyingMoney.innerHTML);dealNum++;endDeal();}
+                            oBuyAttack.onclick = function(){player.attack += parseInt(oAttackNum.innerHTML);player.gold -= parseInt(oBuyingMoney.innerHTML);dealNum++;endDeal();}
+                            oBuyGuard.onclick = function(){player.guard += parseInt(oGuardNum.innerHTML);player.gold -= parseInt(oBuyingMoney.innerHTML);dealNum++;endDeal();}
+                            oBuyNone.onclick = function(){endDeal();}
+                        }
+
+                        
+                        // 结束交易需要进行的相关操作
+                        function endDeal(){
+                            oBuyLife.style.backgroundColor = "";
+                            oBuyAttack.style.backgroundColor = "";
+                            oBuyGuard.style.backgroundColor = "";
+                            oBuyNone.style.backgroundColor = "";
+
+                            showData();
+                            oBuying.style.visibility = "hidden"
+                            moveFlag = 1;
+                            window.onkeydown = null;
+                            window.onkeyup = null;
+                        }
+
+                    }
+
 
                     // 战斗中一次攻击的函数
                     // 其中，敌人先受到攻击，如果体力小于0，就将体力归0，并显示数据，再清除数据，在改变并重绘地图；如果体力值不为 0 ，则主角受到攻击，显示数据，并进行下一场战斗的计时
                     function attackInBattle(){
                         enemy.life -= player.attack - enemyData[map[currentFloor][checkX][checkY].f].guard;
-                        if(enemy.life < 0){
+                        if(enemy.life <= 0){
                             enemy.life = 0;
                             player.gold += enemyData[map[currentFloor][checkX][checkY].f].gold;
 
@@ -268,6 +431,9 @@
 
                             map[currentFloor][checkX][checkY].t = "none";
                             drawFloor();
+
+                            // 检查杀死敌人的事件
+                            enemyEvent(currentFloor);
 
                             moveFlag = 1;
                         }
@@ -307,16 +473,25 @@
                                     // console.log(i+'-'+j);
                                     var newBk = "images/Characters/" +  enemyData[map[currentFloor][i][j].f].src;
                                     var offY = enemyData[map[currentFloor][i][j].f].offsetY;
-                                    addBkImage(i,j,newBk,0,offY);
+                                    addBkImage(i,j,newBk,activeFlag * -32,offY);
                                     break;
                                 }
                                 case "wall": {
+                                    if(openDoorFlag)break;
                                     var newBk = "images/Characters/" +  wallData[map[currentFloor][i][j].f].src;
                                     var offX = wallData[map[currentFloor][i][j].f].offsetX;
                                     addBkImage(i,j,newBk,offX,0);
                                     break;
                                 }
+                                case "lava": {
+                                    if(openDoorFlag)break;
+                                    var newBk = "images/Characters/" +  lavaData[map[currentFloor][i][j].f].src;
+                                    var offY = lavaData[map[currentFloor][i][j].f].offsetY;
+                                    addBkImage(i,j,newBk,0,offY);
+                                    break;
+                                }
                                 case "door": {
+                                    if(openDoorFlag)break;
                                     var newBk = "images/Characters/" +  doorData[map[currentFloor][i][j].f].src;
                                     var offX = doorData[map[currentFloor][i][j].f].offsetX;
                                     addBkImage(i,j,newBk,offX,0);
@@ -336,13 +511,27 @@
                                 case "NPC":{
                                     var newBk = "images/Characters/" + NPCData[map[currentFloor][i][j].f].src;
                                     var offY = NPCData[map[currentFloor][i][j].f].offsetY;
-                                    addBkImage(i,j,newBk,0,offY);
+                                    addBkImage(i,j,newBk,activeFlag * -64,offY);
                                     break;
                                 }
                                 case "bigDealer":{
                                     var newBk = "images/Characters/" +  bigDealerData[map[currentFloor][i][j].f].src;
                                     var offX = bigDealerData[map[currentFloor][i][j].f].offsetX;
                                     addBkImage(i,j,newBk,offX,0);
+                                    break;
+                                }
+                                case "sword":{
+                                    var newBk = "images/Characters/" +  swordData[map[currentFloor][i][j].f].src;
+                                    var offX = swordData[map[currentFloor][i][j].f].offsetX;
+                                    var offY = swordData[map[currentFloor][i][j].f].offsetY;
+                                    addBkImage(i,j,newBk,offX,offY);
+                                    break;
+                                }
+                                case "shield":{
+                                    var newBk = "images/Characters/" +  shieldData[map[currentFloor][i][j].f].src;
+                                    var offX = shieldData[map[currentFloor][i][j].f].offsetX;
+                                    var offY = shieldData[map[currentFloor][i][j].f].offsetY;
+                                    addBkImage(i,j,newBk,offX,offY);
                                     break;
                                 }
                             }
@@ -357,9 +546,9 @@
                         case 3: playerOffY = -66;break;
                         case 4: playerOffY = 0;break;
                     }
-                    console.log(player.x+'-'+player.y);
+                    // console.log(player.x+'-'+player.y);
                     var oToChange = document.getElementById(player.x+'-'+player.y);
-                    oToChange.style.background = "url('images/Characters/Actor01-Braver01.png') 0 "+ playerOffY + "px no-repeat," + oToChange.style.background;
+                    oToChange.style.background = "url('images/Characters/Actor01-Braver01.png') 0px "+ playerOffY + "px no-repeat," + oToChange.style.background;
 
 
                     function addBkImage(i, j, bkImage, offX, offY){
@@ -390,6 +579,7 @@
                 function openDoorAndWall(currentFloor, i, j){
 
                     moveFlag = 0;
+                    openDoorFlag = 1;
 
                     var oToChange = document.getElementById(i+'-'+j);
                     var pre = oToChange.style.background.match(/^url.*?px/)// url("images/Characters/Event01-Wall01.png") -32px
@@ -405,11 +595,13 @@
                                     map[currentFloor][i][j].t = "none";
                                     oToChange.style.background = after[0];
                                     moveFlag = 1;
+                                    openDoorFlag = 0;
                                 }, doorSpeed)
                             }, doorSpeed)
                         }, doorSpeed)
                     }, doorSpeed)
                 }
+
 
                 // 输出调试信息
                 function showMessage(msg){
@@ -417,24 +609,163 @@
                     oMessage.innerHTML = (dateTime.toLocaleString() + " " + msg + "<br>"); 
                 }
 
-                // 绘制初始表格
-                function creatTable(){
+                // 处理与 NPC 对话的相关事宜
+                // 返回 true 则代表老人可以去死了，返回 false 则代表老人还需要活下来
+                // 如果有什么其他事情，在此函数里面一并处理
+                // 对里面的 wordsNum 的一点说明：由于在与老人交谈时，方向键本身就已经是 window.keydown 了
+                // 所以将其初始设置成 -1，以便可以正常对话
+                // 传入的参数可以是1个也可以是4个，若是1个，则为所要调取的对话数据的名称。若是4个，则还有当前楼层，横纵坐标，
+                // 一般来说，事件对话传1个参数，主动对话传4个参数
+                function talkWithNPC(talkName,curFloor,i,j){
+
+                    moveFlag = 0;
+                    wordsNum = -1;
+                    oSaying.style.visibility = "visible"
+
+                    // 因为要同时设置两个键盘事件，为使他们互不冲突，此处将对话的键盘事件设定在 window 上
+                    window.onkeydown = function(){
+                        wordsNum ++;
+
+                        // 如果对话结束，则结束对话，并关闭对话框
+                        if(wordsNum == sayingData[talkName].words.length){
+                            moveFlag = 1;
+                            oSaying.style.visibility = "hidden";
+                            window.onkeydown = null;
+
+                            if(!(typeof(curFloor) == 'undefined')){
+                                map[curFloor][i][j].t = "none";
+                                drawFloor();
+                            }
+                            if(typeof sayingData[talkName].event != 'undefined'){
+                                eval(sayingData[talkName].event);
+                            }
+                        }
+                        // 如果对话没有结束，则显示接下来的对话
+                        else {
+                            oWords.innerHTML = sayingData[talkName].words[wordsNum];
+                        }
+
+                    }
+                }
+
+                // 到达某地点时会发生的事情
+                function placeEvent(curFloor, i, j){
+                    switch(curFloor){
+                        // 3层 首次遭遇魔王！
+                        case 3:{
+                            if(i == 8 && j == 4 && !eventFlag.faceBossAt3F){
+                                eventFlag.faceBossAt3F = 1;
+                                talkWithNPC("faceBossAt3F");
+                            }
+                        }
+                    }
+                }
+
+                // 击败某怪物时发生的事情
+                function enemyEvent(curFloor){
+                    switch(curFloor){
+                        // 2层 击退中级卫兵
+                        case 2:{
+                            if(map[2][1][5].t == 'none' && map[2][1][7].t == 'none' && !eventFlag.beatGateKeeperBAt2F){
+                                eventFlag.beatGateKeeperBAt2F = 1;
+                                openDoorAndWall(2,4,4);
+                                openDoorAndWall(2,7,4);
+                                openDoorAndWall(2,10,4);
+                                openDoorAndWall(2,4,8);
+                                openDoorAndWall(2,7,8);
+                                openDoorAndWall(2,10,8);
+                            }
+                            break;
+                        }
+                        // 8层 击退初级卫兵
+                        case 8:{
+                            if(map[8][4][8].t == 'none' && map[8][4][10].t == 'none' && !eventFlag.beatGateKeeperAAt9F){
+                                eventFlag.beatGateKeeperAAt9F = 1;
+                                openDoorAndWall(8,3,9);
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                // 绘制表格
+                function creatTable(id, row, line){
                     // '+i+'-'+j+'
-                    var oGameDiv = document.getElementById("gameDiv");
+                    var oGameTable = document.getElementById(id);
                     var table = '<table><tbody>';
-                    for(var i = 0; i < 11; i++){
+                    for(var i = 0; i < row; i++){
                         table += '<tr>';
-                        for(var j = 0; j < 11; j++){
+                        for(var j = 0; j < line; j++){
                             table += '<td id="' + i + '-' + j +'">'+i+'-'+j+'</td>';
                         }
                         table += '</tr>';
                     }
                     table += '</tbody></table>';
-                    oGameDiv.innerHTML = table;
+                    oGameTable.innerHTML += table;
+                }
+
+                // 通过按 H 键 展示怪物手册
+                function toggleEnemyHandbook(){
+                    var oDetail = document.getElementById("enemyDetail");
+
+                    if(!HFlag){
+                        moveFlag = 0;
+                        HFlag    = 1;
+                        oDetail.style.display = "block";
+
+                        showEnemyHandbook(1);
+
+                    } else {
+                        moveFlag = 1;
+                        HFlag    = 0;
+                        oDetail.style.display = "none";
+                    }
+                }
+
+                // 更改怪物手册所展示的内容
+                function showEnemyHandbook(page){
+                    var enemyArr = [];  // 当前地图怪物的数组
+
+                    // 记录当前层的怪物种类
+                    for(var i = 0; i < 11; i ++) {
+                        for(var j = 0; j < 11; j ++) {
+                            if(map[currentFloor][i][j].t === "enemy" && enemyArr.indexOf(map[currentFloor][i][j].f) < 0){
+                                enemyArr.push(map[currentFloor][i][j].f)
+                            }
+                        }
+                    }
+
+                    // 如果当前展示页没有内容, 且当前层有怪物, 则说明右键按多了, 应该返回去
+                    if(page * 5 - 4 > enemyArr && enemyArr.length !== 0) return -1;
+
+                    // 开始展示, 每页最多 5 个
+                    var html = "";
+                    var end = Math.min(enemyArr.length, page * 5);
+                    for(var i = page * 5 - 5; i < end; i++) {
+                        html += ('<li> <p class="name">' + enemyData[enemyArr[i]].chsName + '</p> <p class="damege">损失 ' + calDemage(enemyArr[i]) + ' 点生命</p> <p class="detail"> 生命 <span>' + enemyData[enemyArr[i]].life + '</span> 攻击 <span>' + enemyData[enemyArr[i]].attack + '</span> 防御 <span>' + enemyData[enemyArr[i]].guard + '</span> 金币 <span>' + enemyData[enemyArr[i]].gold + '</span></p> <div class="images" style="background: url(\'images/Characters/' + enemyData[enemyArr[i]].src + "') -32px " + enemyData[enemyArr[i]].offsetY + 'px no-repeat"></div> </li>');
+                    }
+                    document.getElementById("enemyUl").innerHTML = html;
+                }
+
+                // 估计损失的生命值
+                function calDemage(enemy){
+
+                    // 打不动的情况
+                    if(enemyData[enemy].guard >= player.attack) return "Inf";
+
+                    // 进行战斗模拟，预估战斗结果
+                    var tempPlayerLifeDemage = 0;
+                    var tempEnemyLife = enemyData[enemy].life;
+                    while(true){
+                        tempEnemyLife -= player.attack - enemyData[enemy].guard;
+                        if(tempEnemyLife <= 0)break;
+                        tempPlayerLifeDemage += enemyData[enemy].attack - player.guard < 0 ? 0 :enemyData[enemy].attack - player.guard;
+                    }
+
+                    return tempPlayerLifeDemage;
+
                 }
             };
-
-
         }
 
 
@@ -444,26 +775,234 @@
 </head>
 <style type="text/css">
     *{margin: 0;padding: 0;}
-    table{border-collapse:collapse;margin: 0 auto 0 auto;border: 5px solid rgb(119,68,34)}
+    table{border-collapse:collapse;margin: 0 auto 0 auto;border: 5px solid rgb(119,68,34);float: right;}
     td{width: 32px;height:32px;font-size: 10px;text-align: center;
         /*background: url("images/Characters/Event01-Wall02.png") -64px 0 no-repeat;*/
         }
+
+    #saying,#buying{
+        width: 270px;
+        height: 170px;
+        background-color: #38a2ec;
+        opacity: 0.8;
+        position: absolute;
+        left: 225px;
+        top:90px;
+        padding: 20px;
+
+        font-family: 微软雅黑;
+        font-size: 14px;
+
+        visibility: hidden;
+    }
+
+
+    #noMoney{
+        text-indent: 1em;
+        font-size: 24px;
+        line-height: 45px;
+    }
+
+    #buyingNoMoney{
+        color: green;
+        font-size: 30px;
+    }
+
+    #buyingMoney{
+        color: green;
+        font-size: 20px;
+    }
+
+    .buyingList{
+        width: 230px;
+        margin:8px 0 5px 17px;
+        padding: 3px;
+        background-color: #1487d8;
+        cursor: pointer;
+    }
+
+    .buyingList:hover{
+        background-color: #14d855;
+    }
+
+    #words,#buyingIntro{
+        text-indent:2em;
+    }
+
+    #saying-continue,#buying-continue{
+        position: absolute;
+        bottom: 12px;
+        right: 20px;
+    }
+
+    #gameDiv{
+        height: 360px;
+        width: 600px;
+        border: 2px solid red;
+    }
+
+    #baseMessage{
+        height: 360px;
+        width: 200px;
+        float: left
+    }
+
+    #gameTable{
+        height: 360px;
+        width: 358px;
+        float: left;
+    }
+
+
+    #enemyDetail{
+        height: 300px;
+        width: 300px;
+        position: absolute;
+        top: 30px;
+        left: 230px;
+        background-color: grey;
+        opacity: 0.9;
+        display: none;
+    }
+
+    #enemyDetail h1{
+        display: table;
+        margin: 15px auto 5px auto;
+        font-size: 20px;
+    }
+
+    #enemyDetail p{
+        position: absolute;
+        right: 20px;
+        bottom: 10px;
+    }
+    #enemyDetail ul{
+        height: 200px
+    }
+    #enemyDetail li:first-child{
+        border-top: 1px solid #fff;
+    }
+    #enemyDetail li{
+        height: 40px;
+        display: block;
+        position: relative;
+        border-bottom: 1px solid #fff;
+    }
+    #enemyDetail li .images{
+        width: 32px;
+        height: 32px;
+        background: url("images/Characters/Monster06-01.png") -32px 0px no-repeat, url("images/Characters/Other09.png") 0px 0px no-repeat;
+        position: absolute;
+        top:2px;
+        left: 10px;
+    }
+    #enemyDetail li p.name{
+        font-size: 14px;
+        color: green;
+        position: absolute;
+        left: 60px;
+        top: 0px;
+    }
+    #enemyDetail li p.damege{
+        font-size: 12px;
+        color: red;
+        font-weight: bold;
+        position: absolute;
+        left: 160px;
+        top: 0px;
+    }
+    #enemyDetail li p.detail{
+        font-size: 12px;
+        position: absolute;
+        color: blue;
+        left: 60px;
+        top: 20px;
+        width: 240px;
+    }
+    #enemyDetail li span{
+        width: 28px;
+        text-align: center;
+        color: #ffffff;
+        display: inline-block;
+    }
 </style>
 <body>
-    <div id='gameDiv'></div>
-    <p>黄钥匙:<span id="yellowKey"></span></p>
-    <p>蓝钥匙:<span id="blueKey"></span></p>
-    <p>红钥匙:<span id="redKey"></span></p>
-    <p>体力值:<span id="plLife"></span></p>
-    <p>攻击:<span id="plAttack"></span></p>
-    <p>防御:<span id="plGuard"></span></p>
-    <p>金币:<span id="plGold"></span></p>
-    <br>
-    <p>敌名称:<span id="enName"></span></p>
-    <p>敌体力值:<span id="enLife"></span></p>
-    <p>敌攻击:<span id="enAttack"></span></p>
-    <p>敌防御:<span id="enGuard"></span></p>
-    <br>
-    <p>信息栏：<span id="message"></span></p>
+    <div id='gameDiv'>
+        <div id="baseMessage">
+            <p>黄钥匙:<span id="yellowKey"></span></p>
+            <p>蓝钥匙:<span id="blueKey"></span></p>
+            <p>红钥匙:<span id="redKey"></span></p>
+            <p>体力值:<span id="plLife"></span></p>
+            <p>攻击:<span id="plAttack"></span></p>
+            <p>防御:<span id="plGuard"></span></p>
+            <p>金币:<span id="plGold"></span></p>
+            <br>
+            <p>敌名称:<span id="enName"></span></p>
+            <p>敌体力值:<span id="enLife"></span></p>
+            <p>敌攻击:<span id="enAttack"></span></p>
+            <p>敌防御:<span id="enGuard"></span></p>
+            <br>
+            <p>信息栏：<span id="message"></span></p>
+        </div>
+        <div id="gameTable">
+            
+        </div>
+
+        <div id="saying">
+            <p id="words">孩子，继续努力啊！孩子，继续努力啊！孩子，继续努力啊！孩子，继续努力啊！孩子，继续努力啊！孩子，继续努力啊！</p>
+            <p id="saying-continue">请按任意键继续</p>
+        </div>
+
+        <div id="buying">
+            <p id="buyingIntro">欢迎来到奸商商店！！你只需要 <span id = "buyingMoney">20</span> 金币就可以买到称心如意的商品！</p>
+            <p class="buyingList" id="buyLife">1、购买 <span id="lifeNum">400</span> 点体力值</p>
+            <p class="buyingList" id="buyAttack">2、购买 <span id="attackNum">2</span> 点攻击</p>
+            <p class="buyingList" id="buyGuard">3、购买 <span id="guardNum">4</span> 点防御</p>
+            <p class="buyingList" id="buyNone">4、嗯。。我再考虑考虑</p>
+            <p id="noMoney">你的金币不足 <span id = "buyingNoMoney">20</span> 枚。你别想从我这里获得任何东西！</p>
+            <p id="buying-continue">请按任意键继续</p>
+        </div>
+    </div>
+
+    <div id="enemyDetail">
+        <h1>怪物信息</h1>
+        <ul id="enemyUl">
+            <li>
+                <p class="name">初级法师</p>
+                <p class="damege">损失 100 点生命</p>
+                <p class="detail"> 生命 <span>300</span> 攻击 <span>20</span> 防御 <span>20</span> 金币 <span>300</span></p>
+                <div class="images"></div>
+            </li>
+            <li>
+                <p class="name">初级法师</p>
+                <p class="damege">损失 100 点生命</p>
+                <p class="detail"> 生命 <span>300</span> 攻击 <span>20</span> 防御 <span>20</span> 金币 <span>300</span></p>
+                <div class="images"></div>
+            </li>
+            <li>
+                <p class="name">初级法师</p>
+                <p class="damege">损失 100 点生命</p>
+                <p class="detail"> 生命 <span>300</span> 攻击 <span>20</span> 防御 <span>20</span> 金币 <span>300</span></p>
+                <div class="images"></div>
+            </li>
+            <li>
+                <p class="name">初级法师</p>
+                <p class="damege">损失 100 点生命</p>
+                <p class="detail"> 生命 <span>300</span> 攻击 <span>20</span> 防御 <span>20</span> 金币 <span>300</span></p>
+                <div class="images"></div>
+            </li>
+            <li>
+                <p class="name">初级法师</p>
+                <p class="damege">损失 100 点生命</p>
+                <p class="detail"> 生命 <span>300</span> 攻击 <span>20</span> 防御 <span>20</span> 金币 <span>300</span></p>
+                <div class="images"></div>
+            </li>
+        </ul>
+        <p>按"H"键返回游戏</p>
+    </div>
+    
+    
+
+
 </body>
 </html>

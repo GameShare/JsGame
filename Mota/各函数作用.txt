@@ -1,0 +1,80 @@
+变量：
+enemyData 记录敌人参数的数组
+
+
+
+
+
+
+函数：
+creatTable()      游戏一开始时创建 11 * 11 的表格
+
+
+
+注意点：
+1.多背景
+    css3 中，可以使用以下代码设置多背景：
+    background: url("images/Characters/Actor01-Braver01.png") -32px -32px no-repeat,
+                    url("images/Characters/106-CF_Lava06.png") 0 0 no-repeat;
+    其中，越在前的图片越在上层
+2.坐标系：此游戏中，下是 x 和 i 轴的正轴，右是是 y 和 j 轴的正轴
+地图的读取格式为              map[欲读取的楼层][x坐标][y坐标].t/f
+上下楼初始位置的读取格式为    map[欲读取的楼层][11].downX/downY/upX/upY
+
+
+
+附：某层无污染的布局
+[
+    /*0*/[/*0*/{t:"none",f:"none"},/*1*/{t:"none",f:"none"},/*2*/{t:"none",f:"none"},/*3*/{t:"none",f:"none"},/*4*/{t:"none",f:"none"},/*5*/{t:"none",f:"none"},/*6*/{t:"none",f:"none"},/*7*/{t:"none",f:"none"},/*8*/{t:"none",f:"none"},/*9*/{t:"none",f:"none"},/*10*/{t:"none",f:"none"}],
+
+    /*1*/[/*0*/{t:"none",f:"none"},/*1*/{t:"none",f:"none"},/*2*/{t:"none",f:"none"},/*3*/{t:"none",f:"none"},/*4*/{t:"none",f:"none"},/*5*/{t:"none",f:"none"},/*6*/{t:"none",f:"none"},/*7*/{t:"none",f:"none"},/*8*/{t:"none",f:"none"},/*9*/{t:"none",f:"none"},/*10*/{t:"none",f:"none"}],
+
+    /*2*/[/*0*/{t:"none",f:"none"},/*1*/{t:"none",f:"none"},/*2*/{t:"none",f:"none"},/*3*/{t:"none",f:"none"},/*4*/{t:"none",f:"none"},/*5*/{t:"none",f:"none"},/*6*/{t:"none",f:"none"},/*7*/{t:"none",f:"none"},/*8*/{t:"none",f:"none"},/*9*/{t:"none",f:"none"},/*10*/{t:"none",f:"none"}],
+
+    /*3*/[/*0*/{t:"none",f:"none"},/*1*/{t:"none",f:"none"},/*2*/{t:"none",f:"none"},/*3*/{t:"none",f:"none"},/*4*/{t:"none",f:"none"},/*5*/{t:"none",f:"none"},/*6*/{t:"none",f:"none"},/*7*/{t:"none",f:"none"},/*8*/{t:"none",f:"none"},/*9*/{t:"none",f:"none"},/*10*/{t:"none",f:"none"}],
+
+    /*4*/[/*0*/{t:"none",f:"none"},/*1*/{t:"none",f:"none"},/*2*/{t:"none",f:"none"},/*3*/{t:"none",f:"none"},/*4*/{t:"none",f:"none"},/*5*/{t:"none",f:"none"},/*6*/{t:"none",f:"none"},/*7*/{t:"none",f:"none"},/*8*/{t:"none",f:"none"},/*9*/{t:"none",f:"none"},/*10*/{t:"none",f:"none"}],
+
+    /*5*/[/*0*/{t:"none",f:"none"},/*1*/{t:"none",f:"none"},/*2*/{t:"none",f:"none"},/*3*/{t:"none",f:"none"},/*4*/{t:"none",f:"none"},/*5*/{t:"none",f:"none"},/*6*/{t:"none",f:"none"},/*7*/{t:"none",f:"none"},/*8*/{t:"none",f:"none"},/*9*/{t:"none",f:"none"},/*10*/{t:"none",f:"none"}],
+
+    /*6*/[/*0*/{t:"none",f:"none"},/*1*/{t:"none",f:"none"},/*2*/{t:"none",f:"none"},/*3*/{t:"none",f:"none"},/*4*/{t:"none",f:"none"},/*5*/{t:"none",f:"none"},/*6*/{t:"none",f:"none"},/*7*/{t:"none",f:"none"},/*8*/{t:"none",f:"none"},/*9*/{t:"none",f:"none"},/*10*/{t:"none",f:"none"}],
+
+    /*7*/[/*0*/{t:"none",f:"none"},/*1*/{t:"none",f:"none"},/*2*/{t:"none",f:"none"},/*3*/{t:"none",f:"none"},/*4*/{t:"none",f:"none"},/*5*/{t:"none",f:"none"},/*6*/{t:"none",f:"none"},/*7*/{t:"none",f:"none"},/*8*/{t:"none",f:"none"},/*9*/{t:"none",f:"none"},/*10*/{t:"none",f:"none"}],
+
+    /*8*/[/*0*/{t:"none",f:"none"},/*1*/{t:"none",f:"none"},/*2*/{t:"none",f:"none"},/*3*/{t:"none",f:"none"},/*4*/{t:"none",f:"none"},/*5*/{t:"none",f:"none"},/*6*/{t:"none",f:"none"},/*7*/{t:"none",f:"none"},/*8*/{t:"none",f:"none"},/*9*/{t:"none",f:"none"},/*10*/{t:"none",f:"none"}],
+
+    /*9*/[/*0*/{t:"none",f:"none"},/*1*/{t:"none",f:"none"},/*2*/{t:"none",f:"none"},/*3*/{t:"none",f:"none"},/*4*/{t:"none",f:"none"},/*5*/{t:"none",f:"none"},/*6*/{t:"none",f:"none"},/*7*/{t:"none",f:"none"},/*8*/{t:"none",f:"none"},/*9*/{t:"none",f:"none"},/*10*/{t:"none",f:"none"}],
+
+    /*10*/[/*0*/{t:"none",f:"none"},/*1*/{t:"none",f:"none"},/*2*/{t:"none",f:"none"},/*3*/{t:"none",f:"none"},/*4*/{t:"none",f:"none"},/*5*/{t:"none",f:"none"},/*6*/{t:"none",f:"none"},/*7*/{t:"none",f:"none"},/*8*/{t:"none",f:"none"},/*9*/{t:"none",f:"none"},/*10*/{t:"none",f:"none"}],
+
+    /*11*/{downX:0,downY:0,upX:0,upY:0}
+]
+
+
+各装备 内容：
+50层魔塔中的装备
+
+　　0F：幸运金币（在1F用下楼器）打怪获得的金钱加倍。因此能不打的怪，就等拿到幸运钱币后再打。 　　
+    1F：飞行魔杖 　　
+    3F：怪物手册 　　
+    5F：铁剑（+10攻击）、 记事本 　　
+    9F：铁盾 （+10防御） 　　
+    11F：银盾 （+20防御） 　　
+    13F：神圣剑（+100攻击）（用冰魔法冻住熔岩） 　　
+    15F：镐（打败大乌贼） 48楼用，拿圣剑。 　　
+    16F：圣水（右下角的暗墙里） 　　
+    17F：银剑（+20攻击） 　　
+    19F：十字架（面对吸血鬼、兽人的时候攻击加倍）（十字墙的中间） 　　
+    33F：骑士剑（+40攻击）（必须有足够的血打败4个士兵，否则就永远困在房间里） 　　
+    35F：冰冻魔法（打败魔龙） 拿13楼神圣剑，救25层洋娃娃。 　　
+    37F：炸弹（使用地震卷轴得到，镐也可以） 　　
+    38F：骑士盾（+40防御）（如果从鬼战士下的空格取盾，进去了就出不来了，除非有3把蓝钥匙和打3个战士的血，最好绕道取） 　　
+    39F：对称飞行器（9个黄门中，打开上中的黄门和中右的黄门） 可用三次。 　　
+    41F：下楼器（杀死左上高级巫师后，打败右上角撞出的高级巫师） 在一楼使用，到地下层得幸运金币。 　　
+    43F：圣盾 （+50防御） 　　
+    44F：神圣盾（+100防御，忽视魔法攻击）（异空间，用上层飞行器到达，再k两个高级卫兵或者用圣锤（炸弹）） 　　
+    45F：上楼器。在43楼使用，到44楼后在两个高级卫兵之间使用炸弹（37楼取得），拿盾。 　　
+    46F：魔法钥匙。开一层中的所有黄门。 　　
+    47F：地震卷轴（用4000金币和楼梯口的商人换） 　　
+    48F：圣剑（+50攻击）（英文原版可以杀左上角魔法警卫开门，而中文版必须用镐破墙取） 　　
+    49F：屠龙匕（面对魔龙攻击加倍）（打败假魔王，先打上、下、左和右的魔法警卫，封印假魔王后杀之）
